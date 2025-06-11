@@ -7,6 +7,7 @@ const asyncHandler = (requestHandler) => {
 
 
 export { asyncHandler }
+
 // try await method 
 // const asyncHandler = (fn) => async (req,res,next) => {
 //     try {
