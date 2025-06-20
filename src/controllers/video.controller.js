@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { deleteOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
+import mongoose from "mongoose";
 
 const validateFileType = (file, expectedType) => {
   if (!file) {
@@ -42,8 +43,143 @@ const validateVideoDetails = async (req) => {
 };
 
 const getAllVideos = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
-  //TODO: get all videos based on query, sort, pagination
+  const {
+    page = 1,
+    limit = 10,
+    query,
+    sortBy, 
+    sortType,
+    userId, 
+    isPublished
+  } = req.query;
+
+  
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
+
+ 
+  const pipeline = [];
+
+  
+  if (query && query.trim() !== "") {
+    pipeline.push({
+      $match: {
+        $or: [
+          { title: { $regex: query.trim(), $options: "i" } },
+          { description: { $regex: query.trim(), $options: "i" } },
+        ],
+      },
+    });
+  }
+
+  
+  if (userId) {
+    if (!isValidObjectId(userId)) {
+      throw new ApiError(400, "Invalid userId provided for filtering.");
+    }
+    pipeline.push({
+      $match: {
+        owner: new mongoose.Types.ObjectId(userId),
+      },
+    });
+  }
+
+  let publishedStatus = true; // Assume true by default
+  if (isPublished !== undefined) { // If the parameter was actually provided
+    if (String(isPublished).toLowerCase() === "false") {
+      publishedStatus = false;
+    }
+  }
+  pipeline.push({
+    $match: {
+      isPublished: publishedStatus,
+    },
+  });
+
+  
+  pipeline.push({
+    $lookup: {
+      from: "users",
+      localField: "owner",
+      foreignField: "_id",
+      as: "ownerDetails", 
+      pipeline: [
+        {
+          $project: {
+            fullName: 1,
+            username: 1,
+            avatar: 1,
+          },
+        },
+      ],
+    },
+  });
+
+  
+  pipeline.push({
+    $addFields: {
+      ownerDetails: {
+        $first: "$ownerDetails",
+      },
+    },
+  });
+
+  
+  pipeline.push({
+    $project: {
+      _id: 1, 
+      thumbnail: 1,
+      videoFile: 1, 
+      title: 1,
+      description: 1,
+      duration: 1,
+      views: 1,
+      isPublished: 1,
+      createdAt: 1,
+      updatedAt: 1,
+      owner: 1, 
+      ownerDetails: 1, 
+    },
+  });
+
+  
+  const options = {
+    page: pageNumber,
+    limit: limitNumber,
+    customLabels: {
+      totalDocs: "totalVideos",
+      docs: "videos",
+    },
+  };
+
+  
+  if (sortBy) {
+    const sortOrder = sortType === "asc" ? 1 : -1;
+    options.sort = {
+      [sortBy]: sortOrder,
+    };
+  } else {
+    options.sort = {
+      createdAt: -1
+    };
+  }
+
+
+ 
+  const result = await Video.aggregatePaginate(pipeline, options);
+  if (!result.videos || result.videos.length === 0) {
+    throw new ApiError(404, "No videos found matching criteria.");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        result, // Send the entire result object with pagination info
+        "Videos fetched successfully"
+      )
+    );
 });
 
 const publishVideo = asyncHandler(async (req, res) => {

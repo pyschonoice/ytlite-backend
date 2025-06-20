@@ -10,6 +10,7 @@ router.use(authMiddleware.verifyJWT)
 
 router
   .route("/")
+  .get(videoController.getAllVideos)
   .post(validate,upload.fields([
     {
       name:"videoFile",
