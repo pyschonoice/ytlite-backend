@@ -23,5 +23,15 @@ router.post("/login",validate,userController.loginUser)
 //authenticated routes
 router.post("/logout",validate,authMiddleware.verifyJWT,userController.logoutUser)
 router.post("/refresh-token",userController.refreshAccessToken)
+router.get("/current-user",authMiddleware.verifyJWT,userController.getCurrentUser)
+router.post("/change-password",validate,authMiddleware.verifyJWT,userController.changePassword)
+router.patch("/update-user",validate,authMiddleware.verifyJWT,userController.updateAccountDetails)
+
+router.patch("/update-avatar",authMiddleware.verifyJWT,upload.single("avatar"),userController.updateUserAvatar)
+router.patch("/update-cover",authMiddleware.verifyJWT,upload.single("coverImage"),userController.updateUserCoverImage)
+
+router.get("/c/:username",authMiddleware.verifyJWT,userController.getChannelProfile)
+router.get("/history",authMiddleware.verifyJWT,userController.getUserHistory)
+
 
 export default router;
