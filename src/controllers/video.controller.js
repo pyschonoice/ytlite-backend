@@ -47,20 +47,17 @@ const getAllVideos = asyncHandler(async (req, res) => {
     page = 1,
     limit = 10,
     query,
-    sortBy, 
+    sortBy,
     sortType,
-    userId, 
-    isPublished
+    userId,
+    isPublished,
   } = req.query;
 
-  
   const pageNumber = Number(page);
   const limitNumber = Number(limit);
 
- 
   const pipeline = [];
 
-  
   if (query && query.trim() !== "") {
     pipeline.push({
       $match: {
@@ -72,7 +69,6 @@ const getAllVideos = asyncHandler(async (req, res) => {
     });
   }
 
-  
   if (userId) {
     if (!isValidObjectId(userId)) {
       throw new ApiError(400, "Invalid userId provided for filtering.");
@@ -85,7 +81,8 @@ const getAllVideos = asyncHandler(async (req, res) => {
   }
 
   let publishedStatus = true; // Assume true by default
-  if (isPublished !== undefined) { // If the parameter was actually provided
+  if (isPublished !== undefined) {
+    // If the parameter was actually provided
     if (String(isPublished).toLowerCase() === "false") {
       publishedStatus = false;
     }
@@ -96,13 +93,12 @@ const getAllVideos = asyncHandler(async (req, res) => {
     },
   });
 
-  
   pipeline.push({
     $lookup: {
       from: "users",
       localField: "owner",
       foreignField: "_id",
-      as: "ownerDetails", 
+      as: "ownerDetails",
       pipeline: [
         {
           $project: {
@@ -115,7 +111,6 @@ const getAllVideos = asyncHandler(async (req, res) => {
     },
   });
 
-  
   pipeline.push({
     $addFields: {
       ownerDetails: {
@@ -124,12 +119,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
     },
   });
 
-  
   pipeline.push({
     $project: {
-      _id: 1, 
+      _id: 1,
       thumbnail: 1,
-      videoFile: 1, 
+      videoFile: 1,
       title: 1,
       description: 1,
       duration: 1,
@@ -137,12 +131,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
       isPublished: 1,
       createdAt: 1,
       updatedAt: 1,
-      owner: 1, 
-      ownerDetails: 1, 
+      owner: 1,
+      ownerDetails: 1,
     },
   });
 
-  
   const options = {
     page: pageNumber,
     limit: limitNumber,
@@ -152,7 +145,6 @@ const getAllVideos = asyncHandler(async (req, res) => {
     },
   };
 
-  
   if (sortBy) {
     const sortOrder = sortType === "asc" ? 1 : -1;
     options.sort = {
@@ -160,26 +152,24 @@ const getAllVideos = asyncHandler(async (req, res) => {
     };
   } else {
     options.sort = {
-      createdAt: -1
+      createdAt: -1,
     };
   }
 
-
- 
   const result = await Video.aggregatePaginate(pipeline, options);
   if (!result.videos || result.videos.length === 0) {
     throw new ApiError(404, "No videos found matching criteria.");
   }
 
   return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        result, // Send the entire result object with pagination info
-        "Videos fetched successfully"
-      )
-    );
+  .status(200)
+  .json(
+    new ApiResponse(
+      200,
+      result, // Send the entire result object with pagination info
+      "Videos fetched successfully"
+    )
+  );
 });
 
 const publishVideo = asyncHandler(async (req, res) => {
