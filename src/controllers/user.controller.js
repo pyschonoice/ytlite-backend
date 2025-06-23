@@ -9,7 +9,8 @@ import jwt from "jsonwebtoken";
 
 const options = {
   httpOnly: true,
-  secure: true, // set to false if not using HTTPS locally
+ // secure: true, // set to false if not using HTTPS locally
+  secure: false, // for local dev
   maxAge: COOKIE_AGE, // 7 days
 };
 
@@ -350,7 +351,7 @@ const getChannelProfile = asyncHandler( async ( req, res) => {
     },
     {
       $addFields: {
-        subscriberCount : {
+        subscribersCount : {
           $size : "$subscribers"
         },
         channelsSubscribedToCount : {

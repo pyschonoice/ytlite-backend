@@ -259,9 +259,18 @@ const getVideoById = asyncHandler(async (req, res) => {
 
   if (!video) throw new ApiError(404, "Video Not Found.");
 
+  let likeCount = 0;
+  let isLiked = false;
+  if (req.user && req.user._id) {
+    likeCount = await (await import("../models/like.model.js")).Like.countDocuments({ video: videoId });
+    isLiked = await (await import("../models/like.model.js")).Like.exists({ video: videoId, likedBy: req.user._id });
+  } else {
+    likeCount = await (await import("../models/like.model.js")).Like.countDocuments({ video: videoId });
+  }
+
   return res
     .status(200)
-    .json(new ApiResponse(200, video, "Video fetched Successfully."));
+    .json(new ApiResponse(200, { ...video.toObject(), likeCount, isLiked: !!isLiked }, "Video fetched Successfully."));
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
@@ -365,6 +374,18 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     );
 });
 
+ const incrementViewCount = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+  const video = await Video.findByIdAndUpdate(
+    videoId,
+    { $inc: { views: 1 } },
+    { new: true }
+  );
+  if (!video) throw new ApiError(404, "Video not found");
+  return res.status(200).json(new ApiResponse(200, video, "View count incremented"));
+});
+
+
 export {
   publishVideo,
   getVideoById,
@@ -372,4 +393,5 @@ export {
   updateVideo,
   togglePublishStatus,
   getAllVideos,
+  incrementViewCount,
 };

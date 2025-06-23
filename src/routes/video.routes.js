@@ -28,5 +28,6 @@ router
   .patch(validate, upload.single("thumbnail"), videoController.updateVideo); 
 
 router.patch("/toggle-publish/:videoId", videoController.togglePublishStatus); 
+router.patch("/:videoId/view", videoController.incrementViewCount);
 
 export default router;

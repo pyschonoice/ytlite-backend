@@ -156,9 +156,9 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 
   const result = await Subscription.aggregatePaginate(pipeline, options);
 
-  if (!result.subscribers || result.subscribers.length === 0) {
-    throw new ApiError(404, `No subscribers found for ${username}.`);
-  }
+  // if (!result.subscribers || result.subscribers.length === 0) {
+  //   throw new ApiError(404, `No subscribers found for ${username}.`);
+  // }
 
   return res
     .status(200)
@@ -261,9 +261,9 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
 
   const result = await Subscription.aggregatePaginate(pipeline, options);
 
-  if (!result.channels || result.channels.length === 0) {
-    throw new ApiError(404, `No subscribed channels found for ${username}.`);
-  }
+  // if (!result.channels || result.channels.length === 0) {
+  //   throw new ApiError(404, `No subscribed channels found for ${username}.`);
+  // }
 
   return res
     .status(200)
