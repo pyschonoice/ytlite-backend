@@ -87,7 +87,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Failed to create user during registration.");
   }
 
-  const { accessToken, refreshToken } = generateTokens(user._id);
+  const { accessToken, refreshToken } = await generateTokens(user._id);
 
   // Fetch the user to send back, deselecting sensitive info
   const createdUser = await User.findById(user._id).select(
