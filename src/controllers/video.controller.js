@@ -174,7 +174,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 });
 
 const publishVideo = asyncHandler(async (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, isPublic } = req.body;
 
   const videoFileLocalPath = req.files?.videoFile?.[0]?.path;
   if (!videoFileLocalPath) throw new ApiError(403, "Video file is needed!");
@@ -224,6 +224,7 @@ const publishVideo = asyncHandler(async (req, res) => {
       },
       duration: videoFileResponse.duration,
       owner: req.user._id,
+      isPublic: typeof isPublic === 'undefined' ? true : isPublic,
     });
 
     if (!video)
@@ -293,7 +294,7 @@ const updateVideo = asyncHandler(async (req, res) => {
   const video = await validateVideoDetails(req);
   const { videoId } = req.params;
 
-  const { title, description } = req.body;
+  const { title, description, isPublic } = req.body;
   const thumbnail = req.file;
 
   const updatePayload = {
@@ -302,6 +303,9 @@ const updateVideo = asyncHandler(async (req, res) => {
       description: description,
     },
   };
+  if (typeof isPublic !== 'undefined') {
+    updatePayload.$set.isPublic = isPublic;
+  }
 
   let newThumbnailResponse = null;
 
