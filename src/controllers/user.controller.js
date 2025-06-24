@@ -432,13 +432,30 @@ const getUserHistory = asyncHandler( async (req, res ) => {
     }
   ])
 
+  const history = user[0]?.watchHistory || [];
+
   return res
   .status(200)
   .json(
-    new ApiResponse(200,user[0].watchHistory,"Watch History fetched successfully.")
+    new ApiResponse(200, history, "Watch History fetched successfully.")
   )
 
 })
+
+const removeFromHistory = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+  if (!videoId) throw new ApiError(400, "Video ID is required");
+  await User.findByIdAndUpdate(
+    req.user._id,
+    { $pull: { watchHistory: videoId } }
+  );
+  return res.status(200).json(new ApiResponse(200, {}, "Video removed from watch history."));
+});
+
+const clearHistory = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(req.user._id, { $set: { watchHistory: [] } });
+  return res.status(200).json(new ApiResponse(200, {}, "Watch history cleared."));
+});
 
 export {
   registerUser,
@@ -451,5 +468,7 @@ export {
   updateUserAvatar,
   updateUserCoverImage,
   getChannelProfile,
-  getUserHistory
+  getUserHistory,
+  removeFromHistory,
+  clearHistory
 };

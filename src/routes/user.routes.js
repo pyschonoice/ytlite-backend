@@ -32,6 +32,7 @@ router.patch("/update-cover",authMiddleware.verifyJWT,upload.single("coverImage"
 
 router.get("/c/:username",authMiddleware.verifyJWT,userController.getChannelProfile)
 router.get("/history",authMiddleware.verifyJWT,userController.getUserHistory)
-
+router.delete("/history/:videoId", authMiddleware.verifyJWT, userController.removeFromHistory);
+router.delete("/history", authMiddleware.verifyJWT, userController.clearHistory);
 
 export default router;

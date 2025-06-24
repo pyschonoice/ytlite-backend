@@ -5,6 +5,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { deleteOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import mongoose from "mongoose";
+import { User } from "../models/user.model.js";
 
 const validateFileType = (file, expectedType) => {
   if (!file) {
@@ -374,7 +375,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     );
 });
 
- const incrementViewCount = asyncHandler(async (req, res) => {
+const incrementViewCount = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   const video = await Video.findByIdAndUpdate(
     videoId,
@@ -382,9 +383,42 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     { new: true }
   );
   if (!video) throw new ApiError(404, "Video not found");
+
+  // Add to user's watch history if authenticated
+  if (req.user && req.user._id) {
+    // Remove if already exists, then unshift to front, limit to 100
+    await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $pull: { watchHistory: videoId },
+      }
+    );
+    await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $push: {
+          watchHistory: {
+            $each: [videoId],
+            $position: 0,
+          },
+        },
+      }
+    );
+    // Limit to 100 items
+    await User.findByIdAndUpdate(
+      req.user._id,
+      [
+        {
+          $set: {
+            watchHistory: { $slice: ["$watchHistory", 100] },
+          },
+        },
+      ]
+    );
+  }
+
   return res.status(200).json(new ApiResponse(200, video, "View count incremented"));
 });
-
 
 export {
   publishVideo,
