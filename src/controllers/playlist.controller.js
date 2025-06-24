@@ -117,6 +117,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
       ownerDetails: 1,
       createdAt: 1,
       updatedAt: 1,
+      isPrivate: 1,
     },
   });
 
@@ -260,6 +261,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
         videoCount: { $size: "$playlistVideos" },
         createdAt: 1,
         updatedAt: 1,
+        isPrivate: 1,
       },
     },
   ]);
