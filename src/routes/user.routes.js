@@ -20,9 +20,9 @@ router.post("/register", validate,
 
 router.post("/login",validate,userController.loginUser)
 
+router.post("/refresh-token",userController.refreshAccessToken)
 //authenticated routes
 router.post("/logout",validate,authMiddleware.verifyJWT,userController.logoutUser)
-router.post("/refresh-token",userController.refreshAccessToken)
 router.get("/current-user",authMiddleware.verifyJWT,userController.getCurrentUser)
 router.post("/change-password",validate,authMiddleware.verifyJWT,userController.changePassword)
 router.patch("/update-user",validate,authMiddleware.verifyJWT,userController.updateAccountDetails)
@@ -30,7 +30,7 @@ router.patch("/update-user",validate,authMiddleware.verifyJWT,userController.upd
 router.patch("/update-avatar",authMiddleware.verifyJWT,upload.single("avatar"),userController.updateUserAvatar)
 router.patch("/update-cover",authMiddleware.verifyJWT,upload.single("coverImage"),userController.updateUserCoverImage)
 
-router.get("/c/:username",authMiddleware.verifyJWT,userController.getChannelProfile)
+router.get("/c/:username",userController.getChannelProfile)
 router.get("/history",authMiddleware.verifyJWT,userController.getUserHistory)
 router.delete("/history/:videoId", authMiddleware.verifyJWT, userController.removeFromHistory);
 router.delete("/history", authMiddleware.verifyJWT, userController.clearHistory);

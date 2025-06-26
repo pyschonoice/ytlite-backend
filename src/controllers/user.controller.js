@@ -14,18 +14,23 @@ const options = {
   maxAge: COOKIE_AGE, // 7 days
 };
 
-const generateTokens = async (userId) => {
+const generateTokens = async(userId) => {
   try {
-    const user = await User.findById(userId);
-    const accessToken = user.generateAccessToken();
-    const refreshToken = user.generateRefreshToken();
+      const user = await User.findById(userId);
+      if (!user) {
+          throw new Error("User not found during token generation");
+      }
+      const accessToken = user.generateAccessToken(); // Method on user model
+      const refreshToken = user.generateRefreshToken(); // Method on user model
 
-    user.refreshToken = refreshToken;
-    await user.save({ validBeforeSave: false });
+      // Store new refresh token on user in DB
+      user.refreshToken = refreshToken;
+      await user.save({ validateBeforeSave: false });
 
-    return { accessToken, refreshToken };
-  } catch (err) {
-    throw new ApiError(500, "Error while generating tokens.");
+      return { accessToken, refreshToken };
+  } catch (error) {
+      console.error("Error in generateTokens:", error);
+      throw new ApiError(500, "Failed to generate new tokens.");
   }
 };
 
@@ -154,44 +159,103 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User logged out successfully."));
 });
 
+
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies?.refreshToken || req.body.refreshToken;
-  if (!incomingRefreshToken) throw new ApiError(401, "Unauthorized Request");
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Unauthorized Request: Refresh token missing.");
+  }
 
   try {
+    // 1. Verify and decode the incoming refresh token
     const decodedToken = jwt.verify(
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
     );
+
+    // 2. Find the user based on the decoded token's ID
     const user = await User.findById(decodedToken?._id);
-    if (!user) throw new ApiError(401, "Invalid Refresh Token");
 
-    if (incomingRefreshToken !== user?.refreshToken)
-      throw new ApiError(401, "Refresh Token is expired or used.");
+    // CRITICAL FIX: Check if user was found
+    if (!user) {
+      throw new ApiError(401, "Invalid Refresh Token: User not found.");
+    }
 
+    // 3. Compare incoming refresh token with the one stored in the user document
+    // This is important for security: ensures the token hasn't been replaced/invalidated
+    if (incomingRefreshToken !== user.refreshToken) {
+      // It's possible the user's refresh token has changed (e.g., new login, manual refresh)
+      // or this token was revoked/used.
+      // Clear cookies for this case to force re-login.
+      const options = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Lax', // Adjust as per your CORS policy
+      };
+      return res
+        .status(401)
+        .clearCookie("accessToken", options)
+        .clearCookie("refreshToken", options)
+        .json(new ApiResponse(401, null, "Refresh Token is expired or used. Please re-login."));
+      // Or you can simply throw an ApiError(401, "Refresh Token is expired or used.");
+      // The frontend interceptor will then catch this and redirect to login.
+      // For now, throwing ApiError might be simpler if your frontend always redirects on 401.
+      // throw new ApiError(401, "Refresh Token is expired or used.");
+    }
+
+    // 4. If all checks pass, generate new access and refresh tokens
     const { accessToken, refreshToken: newRefreshToken } = await generateTokens(
       user._id
     );
 
+    // 5. Update user's refresh token in the database (critical for single-use or rotation)
+    user.refreshToken = newRefreshToken;
+    await user.save({ validateBeforeSave: false }); // Save without schema validation
+
+    // 6. Set new tokens as HttpOnly cookies in the response
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Lax', // IMPORTANT: Match this with your CORS/security needs
+      // maxAge: 15 * 24 * 60 * 60 * 1000, // Example: 15 days, if you want expiration on client
+    };
+
     return res
+      .status(200)
       .cookie("accessToken", accessToken, options)
       .cookie("refreshToken", newRefreshToken, options)
-      .status(200)
       .json(
         new ApiResponse(
           200,
           {
             accessToken,
-            refreshToken: newRefreshToken,
+            refreshToken: newRefreshToken, // This refresh token is usually not sent back to client
           },
           "Access Token Refreshed."
         )
       );
   } catch (error) {
-    throw new ApiError(401, error?.message || "Refresh Token is Invalid");
+    // This catch block handles errors from jwt.verify or any other unexpected errors
+    console.error("Error in refreshAccessToken:", error); // Log the actual error for debugging
+    // This part is good: it throws a 401 if refresh token is invalid/expired
+    throw new ApiError(
+      401,
+      error?.message || "Invalid Refresh Token or Authentication Failure."
+    );
   }
 });
+
+// Assuming `generateTokens` is defined elsewhere, e.g.:
+/*
+async function generateTokens(userId) {
+    const user = await User.findById(userId); // Fetch user again or ensure it's passed
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken(); // Assuming methods on user model
+    return { accessToken, refreshToken };
+}
+*/
 
 const changePassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
