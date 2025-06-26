@@ -67,16 +67,27 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
       from: "videos",
       localField: "videos",
       foreignField: "_id",
-      as: "playlistVideos",
+      as: "videos",
 
-      pipeline: [{ $project: { _id: 1 } }],
+      pipeline: [
+        {
+          $project: {
+            _id: 1,
+            thumbnail: 1, // <--- CRUCIAL: Include thumbnail
+            title: 1,     // Include title for context if needed
+            duration: 1,  // Include duration if needed for any display
+            views: 1,     // Include views if needed
+            createdAt: 1, // Include creation date
+          },
+        },
+      ],
     },
   });
 
   pipeline.push({
     $addFields: {
       videoCount: {
-        $size: "$playlistVideos",
+        $size: "$videos",
       },
     },
   });
@@ -118,6 +129,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
       createdAt: 1,
       updatedAt: 1,
       isPrivate: 1,
+      videos: { $slice: ["$videos", 1] },
     },
   });
 

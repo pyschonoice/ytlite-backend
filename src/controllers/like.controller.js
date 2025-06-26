@@ -210,6 +210,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
             views: 1,
             isPublished: 1,
             owner: 1,
+            createdAt: 1,
           },
         },
       ],
@@ -242,6 +243,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
             fullName: 1,
             username: 1,
             avatar: 1,
+            
           },
         },
       ],
@@ -269,6 +271,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
       owner: "$videoDetails.owner",
       videoOwnerDetails: "$videoOwnerDetails",
       likedAt: "$createdAt",
+      createdAt: "$videoDetails.createdAt"
     },
   });
 
