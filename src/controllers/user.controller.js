@@ -9,8 +9,7 @@ import jwt from "jsonwebtoken";
 
 const options = {
   httpOnly: true,
- // secure: true, // set to false if not using HTTPS locally
-  secure: false, // for local dev
+  secure: true, 
   maxAge: COOKIE_AGE, // 7 days
 };
 
