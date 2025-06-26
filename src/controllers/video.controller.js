@@ -176,20 +176,27 @@ const getAllVideos = asyncHandler(async (req, res) => {
 const publishVideo = asyncHandler(async (req, res) => {
   const { title, description, isPublic } = req.body;
 
-  const videoFileLocalPath = req.files?.videoFile?.[0]?.path;
-  if (!videoFileLocalPath) throw new ApiError(403, "Video file is needed!");
+  // --- FIX STARTS HERE ---
+  // Get the file objects from req.files, which contain the buffer
+  const videoFileObject = req.files?.videoFile?.[0];
+  const thumbnailFileObject = req.files?.thumbnail?.[0];
 
-  const thumbnailLocalPath = req.files?.thumbnail?.[0]?.path;
-  if (!thumbnailLocalPath) throw new ApiError(403, "Thumbnail is needed!");
+  // Validate that the file objects exist
+  if (!videoFileObject) {
+    throw new ApiError(400, "Video file is needed!"); // Changed to 400 as it's a client error (missing input)
+  }
+  if (!thumbnailFileObject) {
+    throw new ApiError(400, "Thumbnail is needed!"); // Changed to 400
+  }
 
-  // Validate file existence and type
-  validateFileType(req.files?.videoFile?.[0], "video");
-  validateFileType(req.files?.thumbnail?.[0], "image");
+  // The validateFileType function expects the file object (which has mimetype)
+  // so this part is correct.
+  validateFileType(videoFileObject, "video");
+  validateFileType(thumbnailFileObject, "image");
 
-  const videoFileResponse = await uploadOnCloudinary(
-    videoFileLocalPath,
-    "video"
-  );
+ 
+  const videoFileResponse = await uploadOnCloudinary(videoFileObject, "video");
+  
 
   if (
     !videoFileResponse ||
@@ -198,10 +205,7 @@ const publishVideo = asyncHandler(async (req, res) => {
   )
     throw new ApiError(500, "Error uploading video file.");
 
-  const thumbnailResponse = await uploadOnCloudinary(
-    thumbnailLocalPath,
-    "image"
-  );
+  const thumbnailResponse = await uploadOnCloudinary(thumbnailFileObject, "image"); // Pass the file object
 
   if (
     !thumbnailResponse ||
@@ -222,9 +226,9 @@ const publishVideo = asyncHandler(async (req, res) => {
         url: thumbnailResponse.url,
         public_id: thumbnailResponse.public_id,
       },
-      duration: videoFileResponse.duration,
+      duration: videoFileResponse.duration, // Make sure Cloudinary is returning duration
       owner: req.user._id,
-      isPublic: typeof isPublic === 'undefined' ? true : isPublic,
+      isPublic: typeof isPublic === "undefined" ? true : isPublic,
     });
 
     if (!video)
@@ -237,12 +241,14 @@ const publishVideo = asyncHandler(async (req, res) => {
       .status(200)
       .json(new ApiResponse(200, video, "Video Uploaded Successfully!"));
   } catch (error) {
-    if (videoFileResponse) {
-      await deleteOnCloudinary(videoFileResponse.public_id);
+    // Robust cleanup in case of DB failure after Cloudinary upload
+    if (videoFileResponse && videoFileResponse.public_id) {
+      await deleteOnCloudinary(videoFileResponse.public_id, "video");
     }
-    if (thumbnailResponse) {
-      await deleteOnCloudinary(thumbnailResponse.public_id);
+    if (thumbnailResponse && thumbnailResponse.public_id) {
+      await deleteOnCloudinary(thumbnailResponse.public_id, "image");
     }
+    console.error("Error during video publication:", error); // Log the actual error
     throw new ApiError(
       500,
       "Something went wrong while uploading the video and the files were safely deleted from cloudinary."
@@ -295,7 +301,7 @@ const updateVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
 
   const { title, description, isPublic } = req.body;
-  const thumbnail = req.file;
+  const thumbnailFileObject = req.file; // Multer stores single file in req.file
 
   const updatePayload = {
     $set: {
@@ -307,24 +313,19 @@ const updateVideo = asyncHandler(async (req, res) => {
     updatePayload.$set.isPublic = isPublic;
   }
 
-  let newThumbnailResponse = null;
-
-  if (thumbnail) {
-    validateFileType(thumbnail, "image");
+  if (thumbnailFileObject) { // Check if a new thumbnail file object was provided
+    validateFileType(thumbnailFileObject, "image");
 
     try {
       if (video.thumbnail && video.thumbnail.public_id) {
         await deleteOnCloudinary(video.thumbnail.public_id);
       }
     } catch (error) {
-      // console.error(
-      //   "Error deleting old thumbnail from Cloudinary:",
-      //   error.message
-      // );
-      // throw new ApiError(500, "Server Error while Deleting old thumbnail.");
+       console.error("Error deleting old thumbnail from Cloudinary:", error.message);
     }
 
-    newThumbnailResponse = await uploadOnCloudinary(thumbnail.path, "image");
+    // Pass the file object directly
+    const newThumbnailResponse = await uploadOnCloudinary(thumbnailFileObject, "image");
 
     if (
       !newThumbnailResponse ||
